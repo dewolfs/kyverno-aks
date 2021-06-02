@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "thebank"
+  labels:
+    department: "sales"
+    env: "nonprd"
+    compliance: "iso27k"
+    networkzone: "dmz"

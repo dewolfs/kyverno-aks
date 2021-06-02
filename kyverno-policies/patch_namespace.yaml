@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: patch-namespace-name
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: patch-namespace-name
+    match:
+      resources:
+        kinds:
+        - Namespace
+    mutate:
+      overlay:
+        metadata:
+          name: "{{request.object.metadata.name}}-iso27k"

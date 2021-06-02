@@ -1,0 +1,73 @@
+# create a unique name based on your project requirements
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+- none
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+- stage: Build
+  displayName: Build
+  jobs:
+    - job: build1
+      displayName: 'Install bicep CLI'
+      pool: 
+        vmImage: 'ubuntu-latest'
+      steps:
+        - task: Bash@3
+          displayName: 'Install bicep CLI'
+          inputs:
+            targetType: 'inline'
+            script: |
+              curl -Lo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
+              chmod +x ./bicep
+              sudo mv ./bicep /usr/local/bin/bicep
+              bicep --help
+        - task: Bash@3
+          displayName: 'Build ARM template from bicep file'
+          inputs:
+            targetType: 'inline'
+            script: |
+              bicep build ./main.bicep
+        - task: PublishPipelineArtifact@1
+          inputs:
+            targetPath: '$(Pipeline.Workspace)'
+            artifact: 'drop'
+            publishLocation: 'pipeline'
+- stage: Deploy
+  dependsOn: Build
+  jobs:
+  - deployment: Deploy1
+    displayName: Deploy ARM template
+    pool:
+      vmImage: 'ubuntu-latest'
+    environment: 'staging'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'current'
+              artifactName: 'drop'
+              targetPath: '$(Pipeline.Workspace)'
+          - task: AzureCLI@2
+            displayName: 'Run what-if'
+            inputs:
+              scriptType: 'bash'
+              azureSubscription: 'azure-conn'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az account show
+                az deployment sub what-if -f ./main.json -l westeurope
+          - task: AzureCLI@2
+            displayName: 'Deploy ARM template'
+            inputs:
+              scriptType: 'bash'
+              azureSubscription: 'azure-conn'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az account show
+                az deployment sub create -f ./main.json -l westeurope
